@@ -139,18 +139,18 @@ public class Map : MonoBehaviour {
 		int currentBuffer = 0;
 		int nextBuffer = 1;
 		
-		int tileCount = 1;
-		int newTileCount = 0;
+		int currentBufferCount = 1;
+		int nextBufferCount = 0;
 		int distance = 0;
 
 		// Add the starting tile to the buffer so that it's processed
 		tileBuffer[currentBuffer, 0].x = x;
 		tileBuffer[currentBuffer, 0].y = y;
 		
-		while (tileCount > 0)
+		while (currentBufferCount > 0)
 		{
-			newTileCount = 0;
-			for (int i = 0; i < tileCount; i++)
+			nextBufferCount = 0;
+			for (int i = 0; i < currentBufferCount; i++)
 			{
 				// Get x and y of current tile
 				x = tileBuffer[currentBuffer, i].x;
@@ -164,40 +164,40 @@ public class Map : MonoBehaviour {
 				// Left tile
 				if (x > 0 && map[x-1, y] == 0 && mapDistances[x-1, y] == -1)
 				{
-					tileBuffer[nextBuffer, newTileCount].x = x-1;
-					tileBuffer[nextBuffer, newTileCount].y = y;
+					tileBuffer[nextBuffer, nextBufferCount].x = x-1;
+					tileBuffer[nextBuffer, nextBufferCount].y = y;
 					mapDistances[x-1, y] = distance + 1;
-					newTileCount++;
+					nextBufferCount++;
 				}
 				// Right tile
 				if (x < map.GetLength(0)-1 && map[x+1, y] == 0 && mapDistances[x+1, y] == -1)
 				{
-					tileBuffer[nextBuffer, newTileCount].x = x+1;
-					tileBuffer[nextBuffer, newTileCount].y = y;
+					tileBuffer[nextBuffer, nextBufferCount].x = x+1;
+					tileBuffer[nextBuffer, nextBufferCount].y = y;
 					mapDistances[x+1, y] = distance + 1;
-					newTileCount++;
+					nextBufferCount++;
 				}
 				// Top tile
 				if (y > 0 && map[x, y-1] == 0 && mapDistances[x, y-1] == -1) 
 				{
-					tileBuffer[nextBuffer, newTileCount].x = x;
-					tileBuffer[nextBuffer, newTileCount].y = y-1;
+					tileBuffer[nextBuffer, nextBufferCount].x = x;
+					tileBuffer[nextBuffer, nextBufferCount].y = y-1;
 					mapDistances[x, y-1] = distance + 1;
-					newTileCount++;
+					nextBufferCount++;
 				}
 				// Bottom tile
 				if (y < map.GetLength(1)-1 && map[x, y+1] == 0 && mapDistances[x, y+1] == -1)
 				{
-					tileBuffer[nextBuffer, newTileCount].x = x;
-					tileBuffer[nextBuffer, newTileCount].y = y + 1;
+					tileBuffer[nextBuffer, nextBufferCount].x = x;
+					tileBuffer[nextBuffer, nextBufferCount].y = y + 1;
 					mapDistances[x, y+1] = distance + 1;
-					newTileCount++;
+					nextBufferCount++;
 				}
 			}
 			// Swap buffers
 			nextBuffer = (nextBuffer + 1 ) % 2;
 			currentBuffer = (currentBuffer + 1 ) % 2;
-			tileCount = newTileCount;
+			currentBufferCount = nextBufferCount;
 			distance++;
 		}
 	}
