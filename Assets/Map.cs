@@ -156,7 +156,7 @@ public class Map : MonoBehaviour {
 					text.text = mapDistances[i, j].ToString();
 					
 					if (startPoint.x == i && startPoint.y == j)
-						text.color = Color.green;
+						text.color = Color.red;
 					
 					if (endPoint.x == i && endPoint.y == j)
 						text.color = Color.blue;
