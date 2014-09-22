@@ -33,6 +33,9 @@ public class Map : MonoBehaviour {
 	Tile maxDistancePoint;
 	Tile startPoint;
 	Tile endPoint;
+	
+	System.TimeSpan recursiveVisitTime;
+	System.TimeSpan floodFillTime;
 	#endregion
 	
 	void Start()
@@ -48,9 +51,6 @@ public class Map : MonoBehaviour {
 			Start ();
 		}
 	}
-	
-	System.TimeSpan recursiveVisitTime;
-	System.TimeSpan floodFillTime;
 	
 	void OnGUI()
 	{
@@ -128,42 +128,76 @@ public class Map : MonoBehaviour {
 		stopWatch.Stop();
 		floodFillTime = stopWatch.Elapsed;
 	}
-
+	
 	
 	void FloodFill(int x, int y) 
 	{
-		List<Tile> tiles = new List<Tile>();
-		tiles.Add(new Tile(x, y));
-		int distance = 0;
+		// We have two buffers. The ones being processed, and the ones that are
+		// to be processed on the next iteration. This is way faster than having
+		// arrays and adding tiles on the fly.
+		Tile[,] tileBuffer = new Tile[2,100];
+		int currentBuffer = 0;
+		int nextBuffer = 1;
 		
-		while (tiles.Count > 0)
+		int tileCount = 1;
+		int newTileCount = 0;
+		int distance = 0;
+
+		// Add the starting tile to the buffer so that it's processed
+		tileBuffer[currentBuffer, 0].x = x;
+		tileBuffer[currentBuffer, 0].y = y;
+		
+		while (tileCount > 0)
 		{
-			List<Tile> nextTiles = new List<Tile>();
-			
-			for (int i = 0; i < tiles.Count; i++)
+			newTileCount = 0;
+			for (int i = 0; i < tileCount; i++)
 			{
-				x = tiles[i].x;
-				y = tiles[i].y;
+				// Get x and y of current tile
+				x = tileBuffer[currentBuffer, i].x;
+				y = tileBuffer[currentBuffer, i].y;
+				
+				// "visit"
 				mapDistances[x, y] = distance;
 				mapVisitCount[x, y] = 1;
+				
+				// Check if we should add contiguous tiles to the next buffer
+				// Left tile
 				if (x > 0 && map[x-1, y] == 0 && mapDistances[x-1, y] == -1)
 				{
-					nextTiles.Add (new Tile(x-1, y));
+					tileBuffer[nextBuffer, newTileCount].x = x-1;
+					tileBuffer[nextBuffer, newTileCount].y = y;
+					mapDistances[x-1, y] = distance + 1;
+					newTileCount++;
 				}
+				// Right tile
 				if (x < map.GetLength(0)-1 && map[x+1, y] == 0 && mapDistances[x+1, y] == -1)
 				{
-					nextTiles.Add (new Tile(x+1, y));
+					tileBuffer[nextBuffer, newTileCount].x = x+1;
+					tileBuffer[nextBuffer, newTileCount].y = y;
+					mapDistances[x+1, y] = distance + 1;
+					newTileCount++;
 				}
-				if (y < 0 && map[x, y-1] == 0 && mapDistances[x, y-1] == -1) 
+				// Top tile
+				if (y > 0 && map[x, y-1] == 0 && mapDistances[x, y-1] == -1) 
 				{
-					nextTiles.Add (new Tile(x, y-1));
+					tileBuffer[nextBuffer, newTileCount].x = x;
+					tileBuffer[nextBuffer, newTileCount].y = y-1;
+					mapDistances[x, y-1] = distance + 1;
+					newTileCount++;
 				}
+				// Bottom tile
 				if (y < map.GetLength(1)-1 && map[x, y+1] == 0 && mapDistances[x, y+1] == -1)
 				{
-					nextTiles.Add (new Tile(x, y+1));
+					tileBuffer[nextBuffer, newTileCount].x = x;
+					tileBuffer[nextBuffer, newTileCount].y = y + 1;
+					mapDistances[x, y+1] = distance + 1;
+					newTileCount++;
 				}
 			}
-			tiles = nextTiles;
+			// Swap buffers
+			nextBuffer = (nextBuffer + 1 ) % 2;
+			currentBuffer = (currentBuffer + 1 ) % 2;
+			tileCount = newTileCount;
 			distance++;
 		}
 	}
