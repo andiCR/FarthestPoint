@@ -167,6 +167,9 @@ public class Map : MonoBehaviour {
 					float v = ((float)mapVisitCount[i,j]) / 10;
 					cube.renderer.material.color = new Color( 2.0f * v, 2.0f * (1 - v), 0);
 					
+					if (mapVisitCount[i,j] == 0)
+						cube.renderer.material.color = Color.blue;
+					
 					Debug.Log (mapVisitCount[i,j]);
 					text.transform.position = new Vector3(i, 0, j);
 					text.transform.parent = transform;
