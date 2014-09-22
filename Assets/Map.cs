@@ -49,6 +49,16 @@ public class Map : MonoBehaviour {
 		}
 	}
 	
+	System.TimeSpan recursiveVisitTime;
+	System.TimeSpan floodFillTime;
+	
+	void OnGUI()
+	{
+		GUI.Label(new Rect(Screen.width * 0.85f,40,400, 20), "Distance algorithm performance"); 
+		GUI.Label(new Rect(Screen.width * 0.85f,60,400, 20), "Recursive Visit: " + recursiveVisitTime.Ticks); 
+		GUI.Label(new Rect(Screen.width * 0.85f,80,400, 20), "Flood Fill: " + floodFillTime.Ticks); 
+	}
+	
 	
 	void CreateMap()
 	{
@@ -62,7 +72,7 @@ public class Map : MonoBehaviour {
 		}
 	}
 	
-	Tile GetEndPoint(Tile startPoint)
+	Tile GetEndPoint(Tile startPoint, bool floodfill)
 	{
 		// Clear map distances
 		mapDistances = new int[Width,Height];
@@ -74,9 +84,10 @@ public class Map : MonoBehaviour {
 			}
 		}
 		
-		
-		// Visit cell
-		VisitCell (startPoint.x, startPoint.y, 0);
+		if (floodfill)
+			FloodFill(startPoint.x, startPoint.y);
+		else
+			VisitCell (startPoint.x, startPoint.y, 0);
 		
 		// Find max distance
 		int maxDistance = 0;
@@ -104,8 +115,57 @@ public class Map : MonoBehaviour {
 		} while (map[startPoint.x, startPoint.y] == 1);
 		
 		// Get the end point
-		endPoint = GetEndPoint(startPoint);
 		
+		// Diagnose recursive visit
+		var stopWatch = System.Diagnostics.Stopwatch.StartNew();
+		endPoint = GetEndPoint(startPoint, false);
+		stopWatch.Stop();
+		recursiveVisitTime = stopWatch.Elapsed;
+		
+		// Diagnose flood fill
+		stopWatch = System.Diagnostics.Stopwatch.StartNew();
+		endPoint = GetEndPoint(startPoint, true);
+		stopWatch.Stop();
+		floodFillTime = stopWatch.Elapsed;
+	}
+
+	
+	void FloodFill(int x, int y) 
+	{
+		List<Tile> tiles = new List<Tile>();
+		tiles.Add(new Tile(x, y));
+		int distance = 0;
+		
+		while (tiles.Count > 0)
+		{
+			List<Tile> nextTiles = new List<Tile>();
+			
+			for (int i = 0; i < tiles.Count; i++)
+			{
+				x = tiles[i].x;
+				y = tiles[i].y;
+				mapDistances[x, y] = distance;
+				mapVisitCount[x, y] = 1;
+				if (x > 0 && map[x-1, y] == 0 && mapDistances[x-1, y] == -1)
+				{
+					nextTiles.Add (new Tile(x-1, y));
+				}
+				if (x < map.GetLength(0)-1 && map[x+1, y] == 0 && mapDistances[x+1, y] == -1)
+				{
+					nextTiles.Add (new Tile(x+1, y));
+				}
+				if (y < 0 && map[x, y-1] == 0 && mapDistances[x, y-1] == -1) 
+				{
+					nextTiles.Add (new Tile(x, y-1));
+				}
+				if (y < map.GetLength(1)-1 && map[x, y+1] == 0 && mapDistances[x, y+1] == -1)
+				{
+					nextTiles.Add (new Tile(x, y+1));
+				}
+			}
+			tiles = nextTiles;
+			distance++;
+		}
 	}
 	
 	void TryVisit(int x, int y, int distance)
@@ -170,7 +230,6 @@ public class Map : MonoBehaviour {
 					if (mapVisitCount[i,j] == 0)
 						cube.renderer.material.color = Color.blue;
 					
-					Debug.Log (mapVisitCount[i,j]);
 					text.transform.position = new Vector3(i, 0, j);
 					text.transform.parent = transform;
 					
