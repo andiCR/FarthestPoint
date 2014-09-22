@@ -149,6 +149,7 @@ public class Map : MonoBehaviour {
 					GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
 					cube.transform.position = new Vector3(i, 0, j);
 					cube.transform.parent = transform;
+					cube.renderer.material.color = Color.gray;
 				}
 				else {
 					TextMesh text = (TextMesh)Instantiate(distancePrefab);
