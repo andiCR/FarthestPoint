@@ -132,9 +132,9 @@ public class Map : MonoBehaviour {
 	
 	void FloodFill(int x, int y) 
 	{
-		// We have two buffers. The ones being processed, and the ones that are
+		// We have two buffers. The tiles being processed, and the tiles that are
 		// to be processed on the next iteration. This is way faster than having
-		// arrays and adding tiles on the fly.
+		// a generic list and adding tiles on the fly.
 		Tile[,] tileBuffer = new Tile[2,100];
 		int currentBuffer = 0;
 		int nextBuffer = 1;
