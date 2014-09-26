@@ -1,21 +1,9 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Algorithms;
 
 public class Map : MonoBehaviour {
-	
-	#region Structs
-	public struct Tile {
-		public int x;
-		public int y;
-		
-		public Tile (int x = 0, int y = 0) 
-		{
-			this.x = x;
-			this.y = y; 
-		}
-	}
-	#endregion
 	
 	#region Properties
 
@@ -27,10 +15,11 @@ public class Map : MonoBehaviour {
 	
 	#region Variables
 	int[,] map;
-	int[,] mapDistances;
-	int[,] mapVisitCount;
-	int maxDistance;
-	Tile maxDistancePoint;
+	
+	FloodFillAlgorithm		floodFillAlgorithm;
+	RecursiveVisitAlgorithm	recursiveAlgorithm;
+	Algorithm 				visualizedAlgorithm;
+	
 	Tile startPoint;
 	Tile endPoint;
 	
@@ -38,69 +27,97 @@ public class Map : MonoBehaviour {
 	System.TimeSpan floodFillTime;
 	#endregion
 	
+	#region Monobehaviour overrides
 	void Start()
+	{
+		CreateAlgorithms();
+		GenerateNewMap();
+	}
+	
+	void Update()
+	{
+		if (Input.GetKeyUp(KeyCode.Space)) {
+			GenerateNewMap ();
+		}
+	}
+	
+	void OnGUI()
+	{
+		Algorithm otherAlgorithm = (visualizedAlgorithm == floodFillAlgorithm)? (Algorithm)recursiveAlgorithm :(Algorithm) floodFillAlgorithm;
+		
+		// Draw 
+		GUI.Label(new Rect(Screen.width * 0.85f,60,400, 20), "Recursive Visit: " + recursiveVisitTime.Ticks + " ticks"); 
+		GUI.Label(new Rect(Screen.width * 0.85f,80,400, 20), "Flood Fill: " + floodFillTime.Ticks + " ticks"); 
+		
+		GUI.Label(new Rect(Screen.width * 0.85f - 22,120,200, 20), visualizedAlgorithm.Name);
+		
+		GUI.Label(new Rect(Screen.width * 0.85f,140,400, 20), visualizedAlgorithm.HeatMapRedValue);
+		GUI.Label(new Rect(Screen.width * 0.85f,170,400, 20), visualizedAlgorithm.HeatMapGreenValue);
+		GUIUtil.GUIDrawRect(new Rect(Screen.width * 0.85f - 22, 140, 20, 20), Color.red);
+		GUIUtil.GUIDrawRect(new Rect(Screen.width * 0.85f - 22, 170, 20, 20), Color.green);
+		
+		if (GUI.Button(new Rect(Screen.width * 0.85f - 50, 200, 200, 50), "Swap to " + otherAlgorithm.Name))
+		{
+			visualizedAlgorithm = otherAlgorithm;
+			DrawMap ();
+		}
+		
+		if (GUI.Button(new Rect(Screen.width * 0.85f - 50, 260, 200, 50), "Regenerate map (space)"))
+		{
+			GenerateNewMap ();
+		}
+	}
+	#endregion
+	
+	#region Private methods
+	
+	void GenerateNewMap()
 	{
 		CreateMap();
 		CreateStartAndEndPoint();
 		DrawMap();
 	}
 	
-	void Update()
-	{
-		if (Input.GetMouseButtonUp(0)) {
-			Start ();
-		}
-	}
-	
-	void OnGUI()
-	{
-		GUI.Label(new Rect(Screen.width * 0.85f,40,400, 20), "Distance algorithm performance"); 
-		GUI.Label(new Rect(Screen.width * 0.85f,60,400, 20), "Recursive Visit: " + recursiveVisitTime.Ticks); 
-		GUI.Label(new Rect(Screen.width * 0.85f,80,400, 20), "Flood Fill: " + floodFillTime.Ticks); 
-	}
-	
-	
 	void CreateMap()
 	{
+		float complexity = Random.Range (0.4f, 0.8f); // 0.6f
 		map = new int[Width,Height];
 		for (int i = 0; i < Width; i++)
 		{
 			for (int j = 0; j < Height; j++)
 			{
-				map[i,j] = Random.value < 0.6? 0: 1;
+				map[i,j] = Random.value < complexity? 0: 1;
 			}
 		}
 	}
 	
-	Tile GetEndPoint(Tile startPoint, bool floodfill)
+	void CreateAlgorithms()
 	{
-		// Clear map distances
-		mapDistances = new int[Width,Height];
-		mapVisitCount = new int[Width, Height];
-		for (int i = 0; i < Width; i++) {
-			for (int j = 0; j < Height; j++) {
-				this.mapDistances[i, j] = -1;
-				mapVisitCount[i,j] = 0;
-			}
-		}
+		floodFillAlgorithm = new FloodFillAlgorithm(Width, Height);
+		recursiveAlgorithm = new RecursiveVisitAlgorithm(Width, Height);
 		
-		if (floodfill)
-			FloodFill(startPoint.x, startPoint.y);
-		else
-			VisitCell (startPoint.x, startPoint.y, 0);
+		visualizedAlgorithm = floodFillAlgorithm;
+	}
+	
+	Tile GetEndPoint(Tile startPoint, Algorithm algorithm)
+	{
+		algorithm.Clear();
+		
+		algorithm.Analyze(ref map, startPoint);
 		
 		// Find max distance
 		int maxDistance = 0;
 		Tile maxDistancePoint = new Tile();
 		for (int i = 0; i < Width; i++) {
 			for (int j = 0; j < Height; j++) {
-				if (mapDistances[i,j] > maxDistance) {
-					maxDistance = mapDistances[i,j];
+				if (algorithm.MapDistances[i,j] > maxDistance) {
+					maxDistance = algorithm.MapDistances[i,j];
 					maxDistancePoint.x = i;
 					maxDistancePoint.y = j;
 				}
 			}
 		}
+		
 		return maxDistancePoint;
 	}
 	
@@ -118,112 +135,15 @@ public class Map : MonoBehaviour {
 		
 		// Diagnose recursive visit
 		var stopWatch = System.Diagnostics.Stopwatch.StartNew();
-		endPoint = GetEndPoint(startPoint, false);
+		endPoint = GetEndPoint(startPoint, recursiveAlgorithm);
 		stopWatch.Stop();
 		recursiveVisitTime = stopWatch.Elapsed;
 		
 		// Diagnose flood fill
 		stopWatch = System.Diagnostics.Stopwatch.StartNew();
-		endPoint = GetEndPoint(startPoint, true);
+		endPoint = GetEndPoint(startPoint, floodFillAlgorithm);
 		stopWatch.Stop();
 		floodFillTime = stopWatch.Elapsed;
-	}
-	
-	
-	void FloodFill(int x, int y) 
-	{
-		// We have two buffers. The tiles being processed, and the tiles that are
-		// to be processed on the next iteration. This is way faster than having
-		// a generic list and adding tiles on the fly.
-		Tile[,] tileBuffer = new Tile[2,100];
-		int currentBuffer = 0;
-		int nextBuffer = 1;
-		
-		int currentBufferCount = 1;
-		int nextBufferCount = 0;
-		int distance = 0;
-
-		// Add the starting tile to the buffer so that it's processed
-		tileBuffer[currentBuffer, 0].x = x;
-		tileBuffer[currentBuffer, 0].y = y;
-		
-		while (currentBufferCount > 0)
-		{
-			nextBufferCount = 0;
-			for (int i = 0; i < currentBufferCount; i++)
-			{
-				// Get x and y of current tile
-				x = tileBuffer[currentBuffer, i].x;
-				y = tileBuffer[currentBuffer, i].y;
-				
-				// "visit"
-				mapDistances[x, y] = distance;
-				mapVisitCount[x, y] = 1;
-				
-				// Check if we should add contiguous tiles to the next buffer
-				// Left tile
-				if (x > 0 && map[x-1, y] == 0 && mapDistances[x-1, y] == -1)
-				{
-					tileBuffer[nextBuffer, nextBufferCount].x = x-1;
-					tileBuffer[nextBuffer, nextBufferCount].y = y;
-					mapDistances[x-1, y] = distance + 1;
-					nextBufferCount++;
-				}
-				// Right tile
-				if (x < map.GetLength(0)-1 && map[x+1, y] == 0 && mapDistances[x+1, y] == -1)
-				{
-					tileBuffer[nextBuffer, nextBufferCount].x = x+1;
-					tileBuffer[nextBuffer, nextBufferCount].y = y;
-					mapDistances[x+1, y] = distance + 1;
-					nextBufferCount++;
-				}
-				// Top tile
-				if (y > 0 && map[x, y-1] == 0 && mapDistances[x, y-1] == -1) 
-				{
-					tileBuffer[nextBuffer, nextBufferCount].x = x;
-					tileBuffer[nextBuffer, nextBufferCount].y = y-1;
-					mapDistances[x, y-1] = distance + 1;
-					nextBufferCount++;
-				}
-				// Bottom tile
-				if (y < map.GetLength(1)-1 && map[x, y+1] == 0 && mapDistances[x, y+1] == -1)
-				{
-					tileBuffer[nextBuffer, nextBufferCount].x = x;
-					tileBuffer[nextBuffer, nextBufferCount].y = y + 1;
-					mapDistances[x, y+1] = distance + 1;
-					nextBufferCount++;
-				}
-			}
-			// Swap buffers
-			nextBuffer = (nextBuffer + 1 ) % 2;
-			currentBuffer = (currentBuffer + 1 ) % 2;
-			currentBufferCount = nextBufferCount;
-			distance++;
-		}
-	}
-	
-	void TryVisit(int x, int y, int distance)
-	{
-		if (x < 0 || x >= map.GetLength(0) || y < 0 || y >= map.GetLength(1))
-			return;
-		
-		if (map [x, y] == 0 && (mapDistances [x, y] == -1 || mapDistances[x, y] > distance)) {
-			VisitCell(x, y, distance);
-		}
-	}
-	
-	void VisitCell(int x, int y, int distance)
-	{
-		mapVisitCount[x,y] ++;
-		
-		// Set tile's current distance
-		mapDistances[x, y] = distance;
-		
-		// Visit neighbor cells
-		TryVisit(x - 1, y, distance + 1);
-		TryVisit(x + 1, y, distance + 1);
-		TryVisit(x, y - 1, distance + 1);
-		TryVisit(x, y + 1, distance + 1);
 	}
 	
 	void DrawMap()
@@ -247,7 +167,7 @@ public class Map : MonoBehaviour {
 				}
 				else {
 					TextMesh text = (TextMesh)Instantiate(distancePrefab);
-					text.text = mapDistances[i, j].ToString();
+					text.text = visualizedAlgorithm.MapDistances[i, j].ToString();
 					
 					if (startPoint.x == i && startPoint.y == j)
 						text.color = Color.red;
@@ -258,10 +178,10 @@ public class Map : MonoBehaviour {
 					GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
 					cube.transform.parent = text.transform;
 					cube.transform.localPosition = Vector3.zero;
-					float v = ((float)mapVisitCount[i,j]) / 10;
+					float v = ((float)visualizedAlgorithm.HeatMap[i,j]) / visualizedAlgorithm.MaxHeatMap; ///10;;
 					cube.renderer.material.color = new Color( 2.0f * v, 2.0f * (1 - v), 0);
 					
-					if (mapVisitCount[i,j] == 0)
+					if (visualizedAlgorithm.HeatMap[i,j] == 0)
 						cube.renderer.material.color = Color.blue;
 					
 					text.transform.position = new Vector3(i, 0, j);
@@ -271,4 +191,5 @@ public class Map : MonoBehaviour {
 			}
 		}
 	}
+	#endregion
 }
